@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Spring Boot Chat</title>
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+  <style>
+    body { font-family: Arial; display: flex; flex-direction: column; align-items: center; }
+    #chat { border: 1px solid #ccc; width: 400px; height: 300px; overflow-y: auto; padding: 10px; margin-top: 10px; }
+    input, button { padding: 8px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h2>💬 Spring Boot WebSocket Chat</h2>
+  <div id="chat"></div>
+  <input type="text" id="msgBox" placeholder="Type message...">
+  <button onclick="sendMessage()">Send</button>
+
+  <script>
+    let stompClient = null;
+
+    function connect() {
+      const socket = new SockJS('/ws'); // connect to /ws endpoint
+      stompClient = Stomp.over(socket);
+
+      stompClient.connect({}, function() {
+        console.log("Connected to WebSocket");
+
+        // Subscribe to topic where server sends messages
+        stompClient.subscribe('/topic/messages', function(message) {
+          showMessage(message.body);
+        });
+      });
+    }
+
+    function sendMessage() {
+      const msg = document.getElementById("msgBox").value.trim();
+      if (msg) {
+        stompClient.send("/app/message", {}, msg); // send message to /app/message
+        document.getElementById("msgBox").value = '';
+      }
+    }
+
+    function showMessage(message) {
+      const chat = document.getElementById("chat");
+      const msgDiv = document.createElement("div");
+      msgDiv.textContent = message;
+      chat.appendChild(msgDiv);
+    }
+
+    connect();
+  </script>
+</body>
+</html>
