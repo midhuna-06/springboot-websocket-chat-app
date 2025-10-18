@@ -1,29 +1,34 @@
 package com.example.chat.controller;
 
+import java.util.List;
+
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
 
 import com.example.chat.model.Message;
+import com.example.chat.service.ChatService;
 
 @Controller
 public class ChatController {
 
-    // Serve the HTML chat page when user visits /chat
-    @GetMapping("/chat")
-    public String chatPage() {
-        return "chat"; // this loads chat.html from src/main/resources/templates/
+    @MessageMapping("/sendMessage")
+    @SendTo("/topic/public")
+    public Message sendMessage(Message message) {
+        return message;
     }
 
-    // Handle messages sent from client (at /app/sendMessage)
-    @MessageMapping("/sendMessage")
-    @SendTo("/topic/public") // broadcast to everyone subscribed
-    public Message sendMessage(Message message) {
-        // Optionally, we can add timestamp if missing
-        if (message.getTime() == null || message.getTime().isEmpty()) {
-            message.setTime(java.time.LocalTime.now().withNano(0).toString());
-        }
-        return message;
+    @MessageMapping("/newUser")
+    @SendTo("/topic/users")
+    public List<String> newUser(Message message) {
+        ChatService.addUser(message.getFrom());
+        return ChatService.getAllUsers();
+    }
+
+    @MessageMapping("/leaveUser")
+    @SendTo("/topic/users")
+    public List<String> leaveUser(Message message) {
+        ChatService.removeUser(message.getFrom());
+        return ChatService.getAllUsers();
     }
 }
