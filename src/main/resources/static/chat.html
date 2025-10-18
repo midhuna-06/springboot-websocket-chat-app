@@ -1,55 +1,216 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Spring Boot Chat</title>
-  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
-  <style>
-    body { font-family: Arial; display: flex; flex-direction: column; align-items: center; }
-    #chat { border: 1px solid #ccc; width: 400px; height: 300px; overflow-y: auto; padding: 10px; margin-top: 10px; }
-    input, button { padding: 8px; margin-top: 10px; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Spring Chat — WebSocket</title>
+
+<style>
+  :root{
+    --bg:#0f1724;
+    --card:#0b1220;
+    --accent:#6ee7b7;
+    --muted:#98a0b3;
+    --me:#074e3b;
+    --other:#102a43;
+    --glass: rgba(255,255,255,0.04);
+  }
+
+  html,body{height:100%;margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;}
+  body{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background: radial-gradient(1200px 600px at 10% 10%, rgba(110,231,183,0.06), transparent 8%),
+                linear-gradient(180deg,#071021 0%, #071428 50%, #0a1220 100%);
+    color:#e6eef6;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .chat-card{
+    width:92%;
+    max-width:920px;
+    height:76vh;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:14px;
+    box-shadow: 0 10px 30px rgba(2,6,23,0.75), inset 0 1px 0 rgba(255,255,255,0.02);
+    display:flex;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,0.03);
+  }
+
+  .sidebar{
+    width:240px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));
+    padding:18px;
+    border-right:1px solid rgba(255,255,255,0.02);
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+  .brand{font-weight:700;font-size:1.05rem;display:flex;align-items:center;gap:10px}
+  .logo{
+    width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,var(--accent),#34d399);
+    display:flex;align-items:center;justify-content:center;color:#052018;font-weight:700;box-shadow:0 4px 10px rgba(110,231,183,0.08);
+  }
+  .subtitle{font-size:0.85rem;color:var(--muted)}
+
+  .users{margin-top:6px;display:flex;flex-direction:column;gap:8px}
+  .user{
+    display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;cursor:pointer;
+    transition:transform .15s ease, background .15s ease;
+  }
+  .user:hover{transform:translateX(6px);background:var(--glass)}
+  .avatar{width:36px;height:36px;border-radius:8px;background:#0b2233;display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--accent)}
+
+  .main{flex:1;display:flex;flex-direction:column;}
+  .header{
+    padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.02);
+    backdrop-filter: blur(4px);
+  }
+  .header h3{margin:0;font-size:1.05rem}
+  .status{font-size:0.85rem;color:var(--muted)}
+
+  .messages{
+    padding:18px;flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px;
+    background-image: linear-gradient(180deg, rgba(255,255,255,0.003), transparent 30%);
+  }
+
+  .msg{
+    max-width:74%;
+    padding:10px 14px;border-radius:14px;position:relative;
+    box-shadow: 0 6px 18px rgba(2,6,23,0.45);
+    transform-origin:left center;
+    animation: popIn .28s cubic-bezier(.2,.9,.3,1);
+  }
+  @keyframes popIn{
+    from{opacity:0; transform: translateY(6px) scale(.98);}
+    to{opacity:1; transform: translateY(0) scale(1);}
+  }
+
+  .msg.me{
+    margin-left:auto;border-bottom-right-radius:6px;background:linear-gradient(180deg,var(--me), #065f48); color:#e6fff3;
+  }
+  .msg.other{
+    margin-right:auto;border-bottom-left-radius:6px;background:linear-gradient(180deg,var(--other), #123444); color:#eaf6ff;
+  }
+
+  .meta{font-size:0.72rem;color:rgba(255,255,255,0.6);margin-bottom:6px}
+  .text{white-space:pre-wrap;font-size:0.95rem;line-height:1.35}
+  .time{display:block;font-size:0.68rem;color:var(--muted);margin-top:8px;text-align:right;opacity:0.85}
+
+  .composer{
+    padding:12px 16px;border-top:1px solid rgba(255,255,255,0.02);display:flex;gap:10px;align-items:center;background:linear-gradient(180deg, rgba(255,255,255,0.006), transparent);
+  }
+  .input{
+    flex:1;display:flex;gap:8px;align-items:center;background:rgba(255,255,255,0.02);padding:8px;border-radius:12px;
+  }
+  .input input{
+    flex:1;background:transparent;border:none;color:inherit;padding:8px;font-size:0.95rem;outline:none;
+  }
+  .btn{
+    background:var(--accent);border:none;padding:10px 14px;border-radius:10px;font-weight:600;color:#052018;cursor:pointer;box-shadow:0 6px 18px rgba(110,231,183,0.08);
+    transition:transform .12s ease;
+  }
+  .btn:active{transform:scale(.98)}
+
+  @media (max-width:640px){
+    .chat-card{height:90vh;border-radius:12px;flex-direction:column}
+    .sidebar{width:100%;display:flex;flex-direction:row;overflow:auto}
+    .main{flex:1}
+  }
+</style>
 </head>
 <body>
-  <h2>💬 Spring Boot WebSocket Chat</h2>
-  <div id="chat"></div>
-  <input type="text" id="msgBox" placeholder="Type message...">
-  <button onclick="sendMessage()">Send</button>
+  <div class="chat-card" role="application">
+    <aside class="sidebar">
+      <div class="brand"><div class="logo">SC</div><div>
+        <div>SpringChat</div>
+        <div class="subtitle">WebSocket Demo</div>
+      </div></div>
 
-  <script>
-    let stompClient = null;
+      <div class="users">
+        <div class="user"><div class="avatar">D</div><div>
+          <div style="font-weight:600">Darling</div>
+          <div style="font-size:0.78rem;color:var(--muted)">You</div>
+        </div></div>
+      </div>
 
-    function connect() {
-      const socket = new SockJS('/ws'); // connect to /ws endpoint
-      stompClient = Stomp.over(socket);
+      <div style="margin-top:auto;font-size:0.78rem;color:var(--muted)">
+        Tip: Open another tab to chat live.
+      </div>
+    </aside>
 
-      stompClient.connect({}, function() {
-        console.log("Connected to WebSocket");
+    <section class="main">
+      <div class="header">
+        <div>
+              <h2 style="font-family: 'Poppins', sans-serif; color: #00bfa6; text-shadow: 1px 1px 8px rgba(0,0,0,0.2);">
+    🌿 SpringConnect — WS
+    </h2>
 
-        // Subscribe to topic where server sends messages
-        stompClient.subscribe('/topic/messages', function(message) {
-          showMessage(message.body);
-        });
-      });
-    }
+          <div class="status" id="connStatus">Connecting...</div>
+        </div>
+      </div>
 
-    function sendMessage() {
-      const msg = document.getElementById("msgBox").value.trim();
-      if (msg) {
-        stompClient.send("/app/message", {}, msg); // send message to /app/message
-        document.getElementById("msgBox").value = '';
-      }
-    }
+      <div class="messages" id="messages"></div>
 
-    function showMessage(message) {
-      const chat = document.getElementById("chat");
-      const msgDiv = document.createElement("div");
-      msgDiv.textContent = message;
-      chat.appendChild(msgDiv);
-    }
+      <div class="composer">
+        <div class="input">
+          <input id="inputMsg" type="text" placeholder="Type a message and press Enter..." autocomplete="off" />
+        </div>
+        <button class="btn" id="sendBtn">Send</button>
+      </div>
+    </section>
+  </div>
 
-    connect();
-  </script>
+<!-- Add STOMP + SockJS libraries -->
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+
+<script>
+let stompClient = null;
+let me = "Darling";
+
+function connect() {
+  const socket = new SockJS('/ws');
+  stompClient = Stomp.over(socket);
+  stompClient.connect({}, (frame) => {
+    document.getElementById("connStatus").textContent = "Connected";
+
+    stompClient.subscribe('/topic/public', (msg) => {
+      showMessage(JSON.parse(msg.body));
+    });
+  }, (error) => {
+    document.getElementById("connStatus").textContent = "Disconnected";
+    setTimeout(connect, 2000);
+  });
+}
+
+function sendMessage() {
+  const input = document.getElementById("inputMsg");
+  const text = input.value.trim();
+  if (!text) return;
+
+  const message = { from: me, text: text, time: new Date().toLocaleTimeString() };
+  stompClient.send("/app/sendMessage", {}, JSON.stringify(message));
+  input.value = "";
+}
+
+function showMessage(msg) {
+  const messages = document.getElementById("messages");
+  const wrapper = document.createElement("div");
+  wrapper.className = "msg " + (msg.from === me ? "me" : "other");
+  wrapper.innerHTML = `<div class="meta">${msg.from}</div><div class="text">${msg.text}</div><div class="time">${msg.time}</div>`;
+  messages.appendChild(wrapper);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+document.getElementById("sendBtn").addEventListener("click", sendMessage);
+document.getElementById("inputMsg").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") sendMessage();
+});
+
+connect();
+</script>
 </body>
 </html>
