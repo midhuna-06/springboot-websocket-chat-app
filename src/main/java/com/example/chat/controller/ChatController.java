@@ -7,10 +7,16 @@ import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.stereotype.Controller;
 
 import com.example.chat.model.Message;
-import com.example.chat.service.ChatService;
+import com.example.chat.service.UserService;
 
 @Controller
 public class ChatController {
+
+    private final UserService userService;
+
+    public ChatController(UserService userService) {
+        this.userService = userService;
+    }
 
     @MessageMapping("/sendMessage")
     @SendTo("/topic/public")
@@ -21,14 +27,14 @@ public class ChatController {
     @MessageMapping("/newUser")
     @SendTo("/topic/users")
     public List<String> newUser(Message message) {
-        ChatService.addUser(message.getFrom());
-        return ChatService.getAllUsers();
+        userService.addUser(message.getSender());
+        return userService.getOnlineUsers();
     }
 
-    @MessageMapping("/leaveUser")
+    @MessageMapping("/disconnectUser")
     @SendTo("/topic/users")
-    public List<String> leaveUser(Message message) {
-        ChatService.removeUser(message.getFrom());
-        return ChatService.getAllUsers();
+    public List<String> disconnectUser(Message message) {
+        userService.removeUser(message.getSender());
+        return userService.getOnlineUsers();
     }
 }

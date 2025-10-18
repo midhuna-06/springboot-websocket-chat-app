@@ -1,24 +1,22 @@
 package com.example.chat.model;
 
 public class Message {
-    private String from;
-    private String text;
+    private String sender;
+    private String content;
     private String time;
 
     public Message() {}
 
-    public Message(String from, String text, String time) {
-        this.from = from;
-        this.text = text;
+    public Message(String sender, String content, String time) {
+        this.sender = sender;
+        this.content = content;
         this.time = time;
     }
 
-    public String getFrom() { return from; }
-    public void setFrom(String from) { this.from = from; }
-
-    public String getText() { return text; }
-    public void setText(String text) { this.text = text; }
-
+    public String getSender() { return sender; }
+    public void setSender(String sender) { this.sender = sender; }
+    public String getContent() { return content; }
+    public void setContent(String content) { this.content = content; }
     public String getTime() { return time; }
     public void setTime(String time) { this.time = time; }
 }
