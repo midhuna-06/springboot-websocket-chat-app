@@ -92,6 +92,7 @@ function connect() {
     });
     // notify backend about new user
     stompClient.send("/app/newUser", {}, JSON.stringify({ sender: me }));
+
   });
 }
 
